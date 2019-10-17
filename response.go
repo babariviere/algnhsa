@@ -15,7 +15,7 @@ type lambdaResponse struct {
 	IsBase64Encoded   bool                `json:"isBase64Encoded,omitempty"`
 }
 
-func newLambdaResponse(w *httptest.ResponseRecorder, binaryContentTypes map[string]bool) (lambdaResponse, error) {
+func newLambdaResponse(w *httptest.ResponseRecorder, binaryContentTypes map[string]bool, forceBase64 bool) (lambdaResponse, error) {
 	event := lambdaResponse{}
 
 	// Set status code.
@@ -26,7 +26,7 @@ func newLambdaResponse(w *httptest.ResponseRecorder, binaryContentTypes map[stri
 
 	// Set body.
 	contentType := w.Header().Get("Content-Type")
-	if binaryContentTypes[acceptAllContentType] || binaryContentTypes[contentType] {
+	if forceBase64 || binaryContentTypes[acceptAllContentType] || binaryContentTypes[contentType] {
 		event.Body = base64.StdEncoding.EncodeToString(w.Body.Bytes())
 		event.IsBase64Encoded = true
 	} else {
