@@ -10,6 +10,25 @@ import (
 	"strings"
 )
 
+type lengthReader struct {
+	out   *int
+	inner io.Reader
+}
+
+func newLengthReader(body io.Reader, out *int) io.Reader {
+	if out == nil {
+		return body
+	}
+	*out = 0
+	return &lengthReader{inner: body, out: out}
+}
+
+func (l *lengthReader) Read(p []byte) (n int, err error) {
+	n, err = l.inner.Read(p)
+	*l.out += n
+	return
+}
+
 type lambdaRequest struct {
 	HTTPMethod                      string              `json:"httpMethod"`
 	Path                            string              `json:"path"`
@@ -92,10 +111,13 @@ func newHTTPRequest(event lambdaRequest) (*http.Request, error) {
 		u.RawPath = ""
 	}
 
+	contentLength := len(event.Body)
+
 	// Handle base64 encoded body.
 	var body io.Reader = strings.NewReader(event.Body)
 	if event.IsBase64Encoded {
 		body = base64.NewDecoder(base64.StdEncoding, body)
+		body = newLengthReader(body, &contentLength)
 	}
 
 	// Create a new request.
@@ -103,6 +125,9 @@ func newHTTPRequest(event lambdaRequest) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Set Content-Length if not set
+	r.ContentLength = int64(contentLength)
 
 	// Set remote IP address.
 	r.RemoteAddr = event.SourceIP
